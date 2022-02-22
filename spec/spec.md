@@ -8,8 +8,7 @@
 
 Each WASM workflow will have a single exported `run` function.
 
-* Params
-  * `info_len: u32` - Size of the info, for use with `get_info`
+* No params
 * No return
 
 ## Host Types
@@ -65,7 +64,13 @@ Complete a workflow immediately when reached with a failure.
 
 * Params
   * `info_offset: u32` - Where to write the `info` JSON
-  * `info_len: u32` - Only used for validation, comes from `run`
+  * `info_len: u32` - Only used for validation, comes from `get_info_len`
+
+### `get_info_len` function
+
+* No params
+* Return
+  * `info_len: u32` - Byte length of info
 
 ## Q/A
 

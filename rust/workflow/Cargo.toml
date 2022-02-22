@@ -1,0 +1,20 @@
+[package]
+name = "temporal-wasm"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["wee-alloc"]
+wee-alloc = ["wee_alloc"]
+
+[dependencies]
+base64 = "0.13.0"
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+wee_alloc = { version = "0.4", optional = true }
+
+[[example]]
+name = "hello_world"
+path = "examples/hello_world.rs"
+crate-type = ["cdylib"]

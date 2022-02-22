@@ -43,6 +43,9 @@ func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
 			}
 			w.writeMem(ctx, run, offset, run.infoJSON)
 		},
+		"get_info_len": func(ctx wasm.ModuleContext) uint32 {
+			return uint32(len(run.infoJSON))
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed exporting functions: %w", err)
@@ -57,16 +60,13 @@ func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
 	if !ok {
 		return nil, fmt.Errorf("missing 'run' function")
 	}
-	return &wazeroInstance{infoLen: len(run.infoJSON), runFn: runFn}, nil
+	return &wazeroInstance{runFn: runFn}, nil
 }
 
-type wazeroInstance struct {
-	infoLen int
-	runFn   wasm.Function
-}
+type wazeroInstance struct{ runFn wasm.Function }
 
 func (w *wazeroInstance) run() error {
-	_, err := w.runFn(nil, uint64(w.infoLen))
+	_, err := w.runFn(nil)
 	return err
 }
 
