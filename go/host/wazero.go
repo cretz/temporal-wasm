@@ -2,7 +2,6 @@ package host
 
 import (
 	"fmt"
-
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/wasm"
 )
@@ -11,40 +10,43 @@ type wazeroEngine struct{}
 
 func (wazeroEngine) newModule(b []byte) (module, error) {
 	// Create the module
-	mod, err := wazero.DecodeModuleBinary(b)
-	if err != nil {
+	mod := &wazero.ModuleConfig{Source: b}
+	if err := mod.Validate(); err != nil {
 		return nil, fmt.Errorf("failed decoding WASM: %w", err)
 	}
 	return &wazeroModule{mod}, nil
 }
 
-type wazeroModule struct{ mod *wazero.Module }
+type wazeroModule struct{ mod *wazero.ModuleConfig }
 
 func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
 	// Create a store
-	store := wazero.NewStore()
+	store := wazero.NewStoreWithConfig(&wazero.StoreConfig{Engine: wazero.NewEngineJIT()})
 
 	// Bind the functions
-	_, err := wazero.ExportHostFunctions(store, "temporal", map[string]interface{}{
-		"complete": func(ctx wasm.ModuleContext, offset, count uint32) {
-			if b, ok := w.readMem(ctx, run, offset, count); ok {
-				run.complete(b)
-			}
-		},
-		"complete_with_failure": func(ctx wasm.ModuleContext, offset, count uint32) {
-			if b, ok := w.readMem(ctx, run, offset, count); ok {
-				run.completeWithFailure(b)
-			}
-		},
-		"get_info": func(ctx wasm.ModuleContext, offset, count uint32) {
-			if count != uint32(len(run.infoJSON)) {
-				run.completeWithError(fmt.Errorf("invalid info length"))
-				return
-			}
-			w.writeMem(ctx, run, offset, run.infoJSON)
-		},
-		"get_info_len": func(ctx wasm.ModuleContext) uint32 {
-			return uint32(len(run.infoJSON))
+	_, err := wazero.InstantiateHostModule(store, &wazero.HostModuleConfig{
+		Name: "temporal",
+		Functions: map[string]interface{}{
+			"complete": func(ctx wasm.ModuleContext, offset, count uint32) {
+				if b, ok := w.readMem(ctx, run, offset, count); ok {
+					run.complete(b)
+				}
+			},
+			"complete_with_failure": func(ctx wasm.ModuleContext, offset, count uint32) {
+				if b, ok := w.readMem(ctx, run, offset, count); ok {
+					run.completeWithFailure(b)
+				}
+			},
+			"get_info": func(ctx wasm.ModuleContext, offset, count uint32) {
+				if count != uint32(len(run.infoJSON)) {
+					run.completeWithError(fmt.Errorf("invalid info length"))
+					return
+				}
+				w.writeMem(ctx, run, offset, run.infoJSON)
+			},
+			"get_info_len": func(ctx wasm.ModuleContext) uint32 {
+				return uint32(len(run.infoJSON))
+			},
 		},
 	})
 	if err != nil {
@@ -56,8 +58,8 @@ func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed instantiating module: %w", err)
 	}
-	runFn, ok := exports.Function("run")
-	if !ok {
+	runFn := exports.Function("run")
+	if runFn == nil {
 		return nil, fmt.Errorf("missing 'run' function")
 	}
 	return &wazeroInstance{runFn: runFn}, nil
@@ -66,7 +68,7 @@ func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
 type wazeroInstance struct{ runFn wasm.Function }
 
 func (w *wazeroInstance) run() error {
-	_, err := w.runFn(nil)
+	_, err := w.runFn.Call(nil)
 	return err
 }
 
