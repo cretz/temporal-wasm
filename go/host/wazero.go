@@ -2,6 +2,8 @@ package host
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/wasm"
 )
@@ -25,7 +27,7 @@ func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
 
 	// Bind the functions
 	_, err := wazero.InstantiateHostModule(store, &wazero.HostModuleConfig{
-		Name: "temporal",
+		Name: "env",
 		Functions: map[string]interface{}{
 			"complete": func(ctx wasm.ModuleContext, offset, count uint32) {
 				if b, ok := w.readMem(ctx, run, offset, count); ok {
@@ -46,6 +48,26 @@ func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
 			},
 			"get_info_len": func(ctx wasm.ModuleContext) uint32 {
 				return uint32(len(run.infoJSON))
+			},
+			"write_log": func(ctx wasm.ModuleContext, level, offset, count uint32) {
+				var levelStr string
+				switch level {
+				case 1:
+					levelStr = "ERROR"
+				case 2:
+					levelStr = " WARN"
+				case 3:
+					levelStr = " INFO"
+				case 4:
+					levelStr = "DEBUG"
+				case 5:
+					levelStr = "TRACE"
+				default:
+					return
+				}
+				if b, ok := w.readMem(ctx, run, offset, count); ok {
+					log.Print("[" + levelStr + "] " + string(b))
+				}
 			},
 		},
 	})

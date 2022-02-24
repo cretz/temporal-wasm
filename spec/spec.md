@@ -33,6 +33,16 @@ Fields:
 
 * `params?: []payload`
 
+### `log_level` type
+
+Enum of `u32`, values:
+
+* `Error` - `1`
+* `Warn` - `2`
+* `Info` - `3`
+* `Debug` - `4`
+* `Trace` - `5`
+
 ### `payload` type
 
 Fields:
@@ -62,15 +72,30 @@ Complete a workflow immediately when reached with a failure.
 
 ### `get_info` function
 
+Get the immutable workflow info.
+
 * Params
   * `info_offset: u32` - Where to write the `info` JSON
   * `info_len: u32` - Only used for validation, comes from `get_info_len`
+* No return
 
 ### `get_info_len` function
+
+Get the length of the info bytes for use in `get_info`.
 
 * No params
 * Return
   * `info_len: u32` - Byte length of info
+
+### `write_log` function
+
+Write a log
+
+* Params
+  * `level: log_level` - Log level (invalid value means no log)
+  * `message_offset: u32` - UTF-8 string offset
+  * `message_len: u32` - Byte length of the string
+* No return
 
 ## Q/A
 
@@ -137,5 +162,4 @@ Functions:
 * `start_child_workflow`
 * `start_http_activity`
 * `start_timer`
-* `write_log`
 * More for waiting on results of activities and workflows

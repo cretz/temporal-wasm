@@ -11,21 +11,34 @@ mod host_calls {
         pub fn complete_with_failure(failure_offset: *const u8, failure_len: usize);
         pub fn get_info(info_offset: *mut u8, info_len: usize);
         pub fn get_info_len() -> usize;
+        pub fn write_log(level: u32, message_offset: *const u8, message_len: usize);
+    }
+}
+
+pub fn complete(result: Option<Payload>) {
+    if let Some(result) = result {
+        let bytes = serde_json::to_vec(&result).unwrap();
+        unsafe { host_calls::complete(bytes.as_ptr(), bytes.len()); }
+    } else {
+        unsafe { host_calls::complete(std::ptr::null(), 0); }
     }
 }
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct Payload {
+    // TODO(cretz): Make a (de)serializer that treats bytes as base64. Note,
+    // this is mostly just a lot of copy/paste as most trait calls will defer to
+    // the serde_json impls, just need special byte handling.
     #[serde(default, with = "base64_string_map", skip_serializing_if = "HashMap::is_empty")]
-    metadata: HashMap<String, Vec<u8>>,
+    pub metadata: HashMap<String, Vec<u8>>,
     #[serde(default, with = "base64", skip_serializing_if = "Vec::is_empty")]
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 #[derive(Deserialize)]
 pub struct Info {
     #[serde(default)]
-    params: Vec<Payload>,
+    pub params: Vec<Payload>,
 }
 
 impl Info {
@@ -33,10 +46,6 @@ impl Info {
         let mut bytes = Vec::<u8>::with_capacity(unsafe { host_calls::get_info_len() });
         unsafe { host_calls::get_info(bytes.as_mut_ptr(), bytes.capacity()); }
         serde_json::from_slice(&bytes[..]).unwrap()
-    }
-
-    pub fn single_param<'de, D: Deserialize<'de>>(&self) -> Result<D, String> {
-        todo!()
     }
 }
 
@@ -88,4 +97,32 @@ mod base64_string_map {
                 base64::decode(v.as_bytes()).map(|v| (k, v)).map_err(|e| serde::de::Error::custom(e))
             ).collect()
     }
+}
+
+#[repr(u32)]
+#[derive(Copy, Eq, Debug, Hash)]
+pub enum LogLevel {
+    Error = 1,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl Clone for LogLevel {
+    #[inline]
+    fn clone(&self) -> LogLevel {
+        *self
+    }
+}
+
+impl PartialEq for LogLevel {
+    #[inline]
+    fn eq(&self, other: &LogLevel) -> bool {
+        *self as u32 == *other as u32
+    }
+}
+
+pub fn write_log(level: LogLevel, message: &str) {
+    unsafe { host_calls::write_log(level as u32, message.as_bytes().as_ptr(), message.len()); }
 }

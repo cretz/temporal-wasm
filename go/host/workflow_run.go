@@ -74,7 +74,3 @@ func (w *wasmWorkflowRun) completeWithError(err error) {
 	// TODO(cretz): Wrap as non-retryable?
 	w.futureSet.SetError(err)
 }
-
-func (w *wasmWorkflowRun) getInfo() []byte {
-	return w.infoJSON
-}
