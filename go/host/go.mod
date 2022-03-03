@@ -5,7 +5,7 @@ go 1.17
 replace go.temporal.io/sdk => ../../../temporal-sdk-go
 
 require (
-	github.com/tetratelabs/wazero v0.0.0-20220224020415-7c92cf4ca3ef
+	github.com/tetratelabs/wazero v0.0.0-20220303085447-1df4c74ce01a
 	go.temporal.io/api v1.6.1-0.20211110205628-60c98e9cbfe2
 	go.temporal.io/sdk v1.13.1
 )

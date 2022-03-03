@@ -8,25 +8,27 @@ import (
 	"github.com/tetratelabs/wazero/wasm"
 )
 
-type wazeroEngine struct{}
+type wazeroEngine struct{
+	// TODO: newModule should have a pointer receiver and store runtime
+}
 
 func (wazeroEngine) newModule(b []byte) (module, error) {
 	// Create the module
-	mod := &wazero.ModuleConfig{Source: b}
-	if err := mod.Validate(); err != nil {
+	mod, err := wazero.NewRuntime().DecodeModule(b)
+	if err != nil {
 		return nil, fmt.Errorf("failed decoding WASM: %w", err)
 	}
 	return &wazeroModule{mod}, nil
 }
 
-type wazeroModule struct{ mod *wazero.ModuleConfig }
+type wazeroModule struct{ mod *wazero.DecodedModule }
 
 func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
-	// Create a store
-	store := wazero.NewStoreWithConfig(&wazero.StoreConfig{Engine: wazero.NewEngineJIT()})
+	// Create a runtime
+	runtime := wazero.NewRuntime()
 
 	// Bind the functions
-	_, err := wazero.InstantiateHostModule(store, &wazero.HostModuleConfig{
+	_, err := runtime.NewHostModule(&wazero.HostModuleConfig{
 		Name: "env",
 		Functions: map[string]interface{}{
 			"complete": func(ctx wasm.ModuleContext, offset, count uint32) {
@@ -76,11 +78,11 @@ func (w *wazeroModule) newInstance(run *wasmWorkflowRun) (instance, error) {
 	}
 
 	// Instantiate and start "run"
-	exports, err := wazero.InstantiateModule(store, w.mod)
+	m, err := runtime.NewModule(w.mod)
 	if err != nil {
 		return nil, fmt.Errorf("failed instantiating module: %w", err)
 	}
-	runFn := exports.Function("run")
+	runFn := m.Function("run")
 	if runFn == nil {
 		return nil, fmt.Errorf("missing 'run' function")
 	}
